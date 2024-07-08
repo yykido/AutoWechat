@@ -11,7 +11,7 @@ import { WechatyBuilder, log, ScanStatus } from 'wechaty';
 import qrcodeTerminal from 'qrcode-terminal';
 
 const wechaty = WechatyBuilder.build();
-const allowedContacts = ['Evie💫', 'specific-contact-2']; // 允许自动回复的用户列表
+const allowedContacts = ['specific-contact-2']; // 允许自动回复的用户列表
 
 function onScan(qrcode, status) {
   if (status === ScanStatus.Waiting || status === ScanStatus.Timeout) {
