@@ -68,37 +68,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const wechaty = WechatyBuilder.build();
-const allowedContacts = ['specific-contact-1', 'specific-contact-2']; // Specify allowed contacts here
 
-async function getChatGPTReply(message) {
-  const apiKey = process.env.OPENAI_API_KEY;
-  const endpoint = 'https://api.openai.com/v1/engines/davinci-codex/completions';
-  const prompt = `The following is a conversation with an AI assistant. The assistant is helpful, creative, clever, and very friendly.\n\nHuman: ${message}\nAI:`;
-
-  try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        prompt: prompt,
-        max_tokens: 150,
-        temperature: 0.9,
-        top_p: 1,
-        n: 1,
-        stop: ["\n"],
-      }),
-    });
-
-    const data = await response.json();
-    return data.choices[0].text.trim();
-  } catch (error) {
-    log.error('ChatGPT API request failed:', error);
-    return "Sorry, I couldn't generate a response at this time.";
-  }
-}
+const allowedContacts = ['specific-contact-2']; // 允许自动回复的用户列表
 
 function onScan(qrcode, status) {
   if (status === ScanStatus.Waiting || status === ScanStatus.Timeout) {
