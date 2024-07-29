@@ -10,7 +10,7 @@ const openai = new OpenAI({
 });
 
 const wechaty = WechatyBuilder.build();
-const allowedContacts = ['叶建平']; // Specify allowed contacts here
+const allowedContacts = ['叶建平','庆菊','Evie💫']; // Specify allowed contacts here
 const userConversations = {}; // Store user conversations here
 
 async function getChatGPTReply(user, message) {
@@ -57,6 +57,12 @@ function onLogout(user) {
   log.info('StarterBot', '%s logged out', user);
 }
 
+async function handleVoiceMessage(msg) {
+  // TODO: Add your voice message handling logic here
+  log.info('Voice message received from', msg.from().name());
+  msg.say("语音消息已收到，但目前不支持语音处理。");
+}
+
 async function onMessage(msg) {
   log.info('StarterBot', 'Message: %s', msg);
 
@@ -75,11 +81,26 @@ async function onMessage(msg) {
   }
 
   if (allowedContacts.includes(contactName)) {
-    if (msg.type() === wechaty.Message.Type.Text) {
-      const text = msg.text();
-      log.info('Message', `Contact: ${from.name()} Text: ${text}`);
-      const reply = await getChatGPTReply(contactName, text);
-      msg.say(reply);
+    switch (msg.type()) {
+      case wechaty.Message.Type.Text:
+        const text = msg.text();
+        log.info('Message', `Contact: ${from.name()} Text: ${text}`);
+        if (text === "结束对话" && userConversations[contactName]) {
+          userConversations[contactName] = [{ role: "system", content: "You are a helpful assistant." }];
+          log.info('Message', `Chat already finished`);
+          msg.say("对话已结束");
+        } else {
+          const reply = await getChatGPTReply(contactName, text);
+          msg.say(reply);
+        }
+        break;
+      case wechaty.Message.Type.Audio:
+        await handleVoiceMessage(msg);
+        break;
+      // Add more cases to handle other message types if needed
+      default:
+        log.info('Message', `Unhandled message type: ${msg.type()}`);
+        break;
     }
   } else {
     log.info('StarterBot', `Message from ${contactName} is ignored.`);
@@ -94,3 +115,34 @@ wechaty
 
 wechaty.start()
   .catch(e => console.error('Bot start failed:', e));
+
+
+/**
+ *
+ *  Output the Welcome Message
+ *
+ */
+const welcome = `
+| __        __        _           _
+| \\ \\      / /__  ___| |__   __ _| |_ _   _
+|  \\ \\ /\\ / / _ \\/ __| '_ \\ / _\` | __| | | |
+|   \\ V  V /  __/ (__| | | | (_| | |_| |_| |
+|    \\_/\\_/ \\___|\\___|_| |_|\\__,_|\\__|\\__, |
+|                                     |___/
+
+=============== Powered by Wechaty ===============
+-------- https://github.com/chatie/wechaty --------
+          Version: ${wechaty.version(true)}
+
+I'm a bot, my superpower is assisting you thanks to the OPENAI. 
+
+You can ask me any questions you want
+__________________________________________________
+
+Hope you like it, and you are very welcome to
+upgrade me to more superpowers!
+
+Please wait... I'm trying to login in...
+
+`
+console.log(welcome)
