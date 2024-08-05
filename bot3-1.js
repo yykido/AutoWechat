@@ -121,36 +121,3 @@ wechaty
 
 wechaty.start()
   .catch(e => console.error('Bot start failed:', e));
-
-
-async function onMessage(msg) {
-  log.info('StarterBot', 'Message: %s', msg);
-
-  if (msg.self()) {
-    return;
-  }
-
-  const from = msg.from();
-  const contactName = from.name();
-  const room = msg.room();
-
-  // Ignore messages from group chats
-  if (room) {
-    log.info('Message', `Ignoring message from room: ${room.topic()}`);
-    return;
-  }
-
-  if (allowedContacts.includes(contactName)) {
-    if (msg.type() === wechaty.Message.Type.Text) {
-      const text = msg.text();
-      log.info('Message', `Contact: ${from.name()} Text: ${text}`);
-      const outputFile = path.join(__dirname, 'response.mp3');
-      await generateSpeech(reply, outputFile);
-      const fileBox = FileBox.fromFile(outputFile);
-      await msg.say(fileBox);
-      fs.unlinkSync(outputFile);
-    }
-  } else {
-    log.info('StarterBot', `Message from ${contactName} is ignored.`);
-  }
-}
