@@ -28,4 +28,5 @@ build/
 # Temporary files
 *.tmp
 *.log
-
+silk-v3-decoder
+silk-v3-decoder/

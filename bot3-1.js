@@ -2,6 +2,12 @@ import { WechatyBuilder, log, ScanStatus } from 'wechaty';
 import qrcodeTerminal from 'qrcode-terminal';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
+import fetch from 'node-fetch';
+import { writeFileSync, unlinkSync,readFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+import { FileBox } from 'file-box';
+import {pcm2slk} from 'node-silk';
 
 dotenv.config();
 
@@ -10,8 +16,9 @@ const openai = new OpenAI({
 });
 
 const wechaty = WechatyBuilder.build();
-const allowedContacts = ['叶建平','庆菊','Evie💫','Yale','AI人工智能助手']; // Specify allowed contacts here
+const allowedContacts = ['叶建平','庆菊','Yale','AI人工智能助手']; // Specify allowed contacts here
 const userConversations = {}; // Store user conversations here
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 async function getChatGPTReply(user, message) {
   try {
@@ -38,6 +45,54 @@ async function getChatGPTReply(user, message) {
     log.error('ChatGPT API request failed:', error);
     return "Sorry, I couldn't generate a response at this time.";
   }
+}
+async function generateSpeech(text, outputFile, msg) {
+    try {
+      const response = await fetch('https://api.openai.com/v1/audio/speech', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: "tts-1",
+          input: text,
+          voice: "onyx",
+          response_format: "mp3",
+        }),
+      });
+  
+      if (!response.ok) {
+        throw new Error(`TTS API request failed: ${response.statusText}`);
+      }
+  
+      const contentType = response.headers.get('content-type');
+      console.log("Content-Type of response: " + contentType);
+  
+      if (contentType === 'audio/mpeg') {  //'audio/pcm'
+        // const pcmbuf = await response.buffer();
+        const mp3buf = await response.buffer();
+  
+        // Convert PCM buffer to silk format (assuming pcm2slk is a valid conversion method)
+        // const slkbuf = pcm2slk(pcmbuf);
+  
+        // writeFileSync(outputFile, slkbuf);
+        
+        const voice = FileBox.fromBuffer(mp3buf, 'response.mp3');
+        // voice.metadata = {
+        //   voiceLength: 20000
+        // };
+        
+        await msg.say(voice);
+        console.log('Speech synthesis complete, file saved.');
+        return outputFile;
+      } else {
+        throw new Error('Unexpected response type. Expected an audio/pcm file.');
+      }
+    } catch (error) {
+      console.error('TTS API request failed:', error);
+      return null;
+    }
 }
 
 function onScan(qrcode, status) {
@@ -87,27 +142,26 @@ async function onMessage(msg) {
   }
 
   if (allowedContacts.includes(contactName)) {
-    switch (msg.type()) {
-      case wechaty.Message.Type.Text:
-        const text = msg.text();
-        log.info('Message', `Contact: ${from.name()} Text: ${text}`);
-        if (text === "结束对话" && userConversations[contactName]) {
-          userConversations[contactName] = [{ role: "system", content: "You are a helpful assistant." }];
-          log.info('Message', `Chat already finished`);
-          msg.say("对话已结束");
-        } else {
-          const reply = await getChatGPTReply(contactName, text);
-          msg.say(reply);
-        }
-        break;
-      case wechaty.Message.Type.Audio:
-        await handleVoiceMessage(msg);
-        break;
-      // Add more cases to handle other message types if needed
-      default:
-        log.info('Message', `Unhandled message type: ${msg.type()}`);
-        break;
+    // if the msg.type() is Audio convert it to text
+    let text = "";
+    if(msg.type() === wechaty.Message.Type.Text) {
+        text = msg.text();
     }
+    else {
+        text = "from autio";
+    }
+    log.info('Message', `Contact: ${from.name()} Text: ${text}`);
+    if (text === "结束对话" && userConversations[contactName]) {
+      userConversations[contactName] = [{ role: "system", content: "You are a helpful assistant." }];
+      log.info('Message', `Chat already finished`);
+      msg.say("对话已结束");
+    } else {
+      const reply = await getChatGPTReply(contactName, text);
+      const mp3File = join(__dirname, 'response.mp3');
+      generateSpeech(reply,mp3File,msg);
+      msg.say(reply);
+    }
+    
   } else {
     log.info('StarterBot', `Message from ${contactName} is ignored.`);
   }

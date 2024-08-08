@@ -189,7 +189,7 @@ async function generateSpeech(text, outputFile) {
         model: "tts-1",
         input: text,
         voice: "onyx",
-        response_format: "pcm", // changed mp3 to pcm
+        response_format: "mp3", 
       }),
     });
 
@@ -252,26 +252,28 @@ async function onMessage(msg) {
 
       // Generate speech
       const mp3File = join(__dirname, 'response.mp3');
-      const silkFile = join(__dirname, 'response.silk');
+      // const silkFile = join(__dirname, 'response.silk');
       await generateSpeech(reply, mp3File);
-      if (mp3File) {
-        // Convert MP3 to Silk
-        await convertToSilk(mp3File, silkFile);
+      const fileBox = FileBox.fromFile(mp3File);
+      await msg.say(fileBox);
+      // if (mp3File) {
+      //   // Convert MP3 to Silk
+      //   await convertToSilk(mp3File, silkFile);
 
-        // Send the generated Silk file
-        const fileBox = FileBox.fromFile(silkFile);
-        fileBox.metadata = {
-            voiceLength: 60000 // Adjust the voice length as per your requirement in milliseconds
-        };
-        await msg.say(fileBox);
+      //   // Send the generated Silk file
+      //   const fileBox = FileBox.fromFile(silkFile);
+      //   fileBox.metadata = {
+      //       voiceLength: 60000 // Adjust the voice length as per your requirement in milliseconds
+      //   };
+      //   await msg.say(fileBox);
 
-        // Clean up
-        unlinkSync(mp3File);
-        unlinkSync(silkFile);
+      //   // Clean up
+      //   unlinkSync(mp3File);
+      //   // unlinkSync(silkFile);
 
-      } else {
-        await msg.say("Sorry, I couldn't generate a speech response at this time.");
-      }
+      // } else {
+      //   await msg.say("Sorry, I couldn't generate a speech response at this time.");
+      // }
     
     }
   } else {
