@@ -8,6 +8,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { FileBox } from 'file-box';
 import {pcm2slk} from 'node-silk';
+import {silkToText} from './silk2text.js';
 
 dotenv.config();
 
@@ -131,7 +132,7 @@ async function onMessage(msg) {
     return;
   }
 
-  const from = msg.from();
+  const from = msg.talker();
   const contactName = from.name();
   const room = msg.room();
 
@@ -147,8 +148,44 @@ async function onMessage(msg) {
     if(msg.type() === wechaty.Message.Type.Text) {
         text = msg.text();
     }
+    else if(msg.type() === wechaty.Message.Type.Audio) {
+        // convert voice message to text
+        console.log('Received a voice message.');
+
+        const fileBox = await msg.toFileBox();
+        // console.log(`File name: ${fileBox.name}`);
+
+        // 保存语音文件到本地
+        const filePath = `./${fileBox.name}`;
+        await fileBox.toFile(filePath);
+        console.log(`Voice message saved to ${filePath}`);
+        try {
+            text = await silkToText(filePath);
+        } catch (error) {
+            console.error('Failed to translate voice message:', error);
+        }
+        console.log(`Voice message translated to ${text}`);
+
+        /**
+         * 
+         * below are the codes to get the voice audio and send responses quickly to check the "Send voice message function"
+         */
+        // const fileBox = await msg.toFileBox();
+
+        // // 检查文件名称和类型（可选）
+        // log.info('FileBox details:', fileBox);
+
+        // const newFileBox = FileBox.fromBuffer(await fileBox.toBuffer(), 'voice.silk');
+
+        // // 尝试发送
+        // await self.send(newFileBox);
+
+
+        // log.info('Echoed the audio message back');
+        // return;
+    }
     else {
-        text = "from autio";
+        msg.say("Other type message");
     }
     log.info('Message', `Contact: ${from.name()} Text: ${text}`);
     if (text === "结束对话" && userConversations[contactName]) {
@@ -157,8 +194,8 @@ async function onMessage(msg) {
       msg.say("对话已结束");
     } else {
       const reply = await getChatGPTReply(contactName, text);
-      const mp3File = join(__dirname, 'response.mp3');
-      generateSpeech(reply,mp3File,msg);
+    //   const mp3File = join(__dirname, 'response.mp3');
+    //   generateSpeech(reply,mp3File,msg);
       msg.say(reply);
     }
     
