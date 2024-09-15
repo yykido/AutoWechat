@@ -1,3 +1,4 @@
+import { connectToDatabase, addConversation, getConversation } from './db.js';
 import { WechatyBuilder, log, ScanStatus } from 'wechaty';
 import qrcodeTerminal from 'qrcode-terminal';
 import OpenAI from 'openai';
@@ -10,6 +11,7 @@ import { FileBox } from 'file-box';
 import {pcm2slk} from 'node-silk';
 import {silkToText} from './silk2text.js';
 
+
 dotenv.config();
 
 const openai = new OpenAI({
@@ -18,28 +20,22 @@ const openai = new OpenAI({
 
 const wechaty = WechatyBuilder.build();
 const allowedContacts = ['叶建平','庆菊','Yale','AI人工智能助手']; // Specify allowed contacts here
-const userConversations = {}; // Store user conversations here
 const __dirname = dirname(fileURLToPath(import.meta.url));
+await connectToDatabase();
 
 async function getChatGPTReply(user, message) {
   try {
-    // Initialize conversation for the user if not already present
-    if (!userConversations[user]) {
-      userConversations[user] = [{ role: "system", content: "You are a helpful assistant." }];
-    }
-
-    // Add the new user message to the conversation
-    userConversations[user].push({ role: "user", content: message });
+    const conversation = await getConversation(user);
+    conversation.push({ role: "user", content: message });
 
     const completion = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
-      messages: userConversations[user],
+      messages: conversation,
     });
 
     const reply = completion.choices[0].message.content.trim();
 
-    // Add the assistant's reply to the conversation
-    userConversations[user].push({ role: "assistant", content: reply });
+    await addConversation(user, message, reply);
 
     return reply;
   } catch (error) {
@@ -47,6 +43,7 @@ async function getChatGPTReply(user, message) {
     return "Sorry, I couldn't generate a response at this time.";
   }
 }
+
 async function generateSpeech(text, outputFile, msg) {
     try {
       const response = await fetch('https://api.openai.com/v1/audio/speech', {
@@ -128,9 +125,7 @@ async function handleVoiceMessage(msg) {
 async function onMessage(msg) {
   log.info('StarterBot', 'Message: %s', msg);
 
-  if (msg.self()) {
-    return;
-  }
+  if (msg.self()) return;
 
   const from = msg.talker();
   const contactName = from.name();
@@ -149,8 +144,25 @@ async function onMessage(msg) {
         text = msg.text();
     }
     else if(msg.type() === wechaty.Message.Type.Audio) {
-        // convert voice message to text
-        console.log('Received a voice message.');
+        // // convert voice message to text
+        // console.log('Received a voice message.');
+        // // 打印消息类型
+        // console.log('Message Type:', typeof msg);
+
+        // // 打印消息内容
+        // console.log('Message Content:', msg);
+
+        // // 更详细地打印出消息对象的内容
+        // console.dir(msg, { depth: null });
+
+        // // 打印出特定属性
+        // console.log('Message Type (Enum Value):', msg.type());
+        // // msg.say(msg);
+
+        /**
+         * SUCCESS!!!
+         * below are the version of voice message to text
+         */
 
         const fileBox = await msg.toFileBox();
         // console.log(`File name: ${fileBox.name}`);
@@ -167,7 +179,7 @@ async function onMessage(msg) {
         console.log(`Voice message translated to ${text}`);
 
         /**
-         * 
+         * TEST
          * below are the codes to get the voice audio and send responses quickly to check the "Send voice message function"
          */
         // const fileBox = await msg.toFileBox();
