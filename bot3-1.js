@@ -1,4 +1,4 @@
-import { connectToDatabase, addConversation, getConversation } from './db.js';
+import { connectToDatabase, addConversation, getConversation, addTempConversation, getTempConversation, deleteTempConversation } from './db.js';
 import { WechatyBuilder, log, ScanStatus } from 'wechaty';
 import qrcodeTerminal from 'qrcode-terminal';
 import OpenAI from 'openai';
@@ -25,16 +25,17 @@ await connectToDatabase();
 
 async function getChatGPTReply(user, message) {
   try {
-    const conversation = await getConversation(user);
-    conversation.push({ role: "user", content: message });
+    const tempConversation = await getTempConversation(user);
+    tempConversation.push({ role: "user", content: message });
 
     const completion = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
-      messages: conversation,
+      messages: tempConversation,
     });
 
     const reply = completion.choices[0].message.content.trim();
 
+    await addTempConversation(user, message, reply);
     await addConversation(user, message, reply);
 
     return reply;
@@ -200,14 +201,12 @@ async function onMessage(msg) {
         msg.say("Other type message");
     }
     log.info('Message', `Contact: ${from.name()} Text: ${text}`);
-    if (text === "结束对话" && userConversations[contactName]) {
-      userConversations[contactName] = [{ role: "system", content: "You are a helpful assistant." }];
-      log.info('Message', `Chat already finished`);
+    if (text === "结束对话") {
+      await deleteTempConversation(contactName);
+      log.info('Message', `Chat finished for ${contactName}`);
       msg.say("对话已结束");
     } else {
       const reply = await getChatGPTReply(contactName, text);
-    //   const mp3File = join(__dirname, 'response.mp3');
-    //   generateSpeech(reply,mp3File,msg);
       msg.say(reply);
     }
     

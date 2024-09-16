@@ -17,6 +17,7 @@ const client = new MongoClient(uri, {
 
 let db;
 let conversations;
+let tempConversations;
 
 async function connectToDatabase() {
   try {
@@ -25,8 +26,9 @@ async function connectToDatabase() {
     
     db = client.db('wechat_bot');
     conversations = db.collection('conversations');
+    tempConversations = db.collection('tempConversations');
     
-    console.log('Database and collection initialized');
+    console.log('Database and collections initialized');
   } catch (error) {
     console.error('Error connecting to MongoDB:', error);
   }
@@ -65,4 +67,47 @@ async function getConversation(user) {
   }
 }
 
-export { connectToDatabase, addConversation, getConversation };
+async function addTempConversation(user, message, reply) {
+  try {
+    const result = await tempConversations.updateOne(
+      { user: user },
+      {
+        $push: {
+          conversation: {
+            $each: [
+              { role: "user", content: message },
+              { role: "assistant", content: reply }
+            ]
+          }
+        }
+      },
+      { upsert: true }
+    );
+    console.log(`Temporary conversation updated for user ${user}`);
+    return result;
+  } catch (error) {
+    console.error('Error adding temporary conversation:', error);
+  }
+}
+
+async function getTempConversation(user) {
+  try {
+    const result = await tempConversations.findOne({ user: user });
+    return result ? result.conversation : [];
+  } catch (error) {
+    console.error('Error getting temporary conversation:', error);
+    return [];
+  }
+}
+
+async function deleteTempConversation(user) {
+  try {
+    const result = await tempConversations.deleteOne({ user: user });
+    console.log(`Temporary conversation deleted for user ${user}`);
+    return result;
+  } catch (error) {
+    console.error('Error deleting temporary conversation:', error);
+  }
+}
+
+export { connectToDatabase, addConversation, getConversation, addTempConversation, getTempConversation, deleteTempConversation };
