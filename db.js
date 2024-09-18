@@ -12,7 +12,9 @@ const client = new MongoClient(uri, {
     version: '1',
     strict: true,
     deprecationErrors: true,
-  }
+  },
+  maxPoolSize: 100,
+  minPoolSize: 10
 });
 
 let db;
@@ -29,6 +31,9 @@ async function connectToDatabase() {
     tempConversations = db.collection('tempConversations');
     
     console.log('Database and collections initialized');
+    
+    await conversations.createIndex({ user: 1 });
+    await tempConversations.createIndex({ user: 1 });
   } catch (error) {
     console.error('Error connecting to MongoDB:', error);
   }

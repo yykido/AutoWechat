@@ -23,26 +23,38 @@ const allowedContacts = ['叶建平','庆菊','Yale','AI人工智能助手']; //
 const __dirname = dirname(fileURLToPath(import.meta.url));
 await connectToDatabase();
 
-async function getChatGPTReply(user, message) {
-  try {
-    const tempConversation = await getTempConversation(user);
-    tempConversation.push({ role: "user", content: message });
+async function getChatGPTReply(user, message, retries = 2) {
+  for (let i = 0; i < retries + 1; i++) {
+    try {
+      const tempConversation = await getTempConversation(user);
+      tempConversation.push({ role: "user", content: message });
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: tempConversation,
-    });
+      const completion = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: tempConversation,
+      });
 
-    const reply = completion.choices[0].message.content.trim();
+      const reply = completion.choices[0].message.content.trim();
 
-    await addTempConversation(user, message, reply);
-    await addConversation(user, message, reply);
+      await addTempConversation(user, message, reply);
+      await addConversation(user, message, reply);
 
-    return reply;
-  } catch (error) {
-    log.error('ChatGPT API request failed:', error);
-    return "Sorry, I couldn't generate a response at this time.";
+      return reply;
+    } catch (error) {
+      if (i === retries || !isRetryableError(error)) {
+        log.error('ChatGPT API request failed:', error);
+        return "Sorry, I couldn't generate a response at this time.";
+      }
+      log.warn(`Retry ${i + 1} for ChatGPT API request`);
+      await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+    }
   }
+}
+
+function isRetryableError(error) {
+  // Implement logic to determine if the error is retryable
+  // For example, retry on network errors or 5xx server errors
+  return error.response?.status >= 500 || error.code === 'ECONNABORTED';
 }
 
 async function generateSpeech(text, outputFile, msg) {
